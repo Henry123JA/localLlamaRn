@@ -8,3 +8,9 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+n_gpu_layers: 0
+
+
+# llama.rn
+-keep class com.rnllama.** { *; }
