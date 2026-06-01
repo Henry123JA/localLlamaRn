@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 
 import {styles} from './src/appStyles';
-import {buildApiServicesPrompt} from './src/ai/apiServicesPrompt';
+import {buildPlannerPrompt} from './src/ai/apiServicesPrompt';
+import {plannerResponseFormat} from './src/ai/api/schemas';
 import {
   ChatMessage,
   DEFAULT_MODEL_PATH,
@@ -130,6 +131,64 @@ export default function App() {
       console.error(error);
     }
   }
+/*
+  function extractJson(text: string) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('La respuesta no contiene JSON válido.');
+    }
+
+    return text.slice(start, end + 1);
+  }
+
+  function parseActionPlan(text: string): PlannedAction[] {
+    const jsonText = extractJson(text);
+    const parsed = JSON.parse(jsonText);
+
+    if (!Array.isArray(parsed.actions)) {
+      throw new Error('actions debe ser un array.');
+    }
+
+    // Caso correcto: el planner devolvió action_plan
+    if (parsed.type === 'action_plan') {
+      return parsed.actions.map((action: any, index: number) => ({
+        step: Number(action.step ?? index + 1),
+        module: action.module,
+        operation: action.operation,
+      }));
+    }
+
+    // Caso tolerado: el modelo se adelantó y devolvió api_services
+    // Entonces convertimos sus actions a un plan simple.
+    if (parsed.type === 'api_services') {
+      return parsed.actions.map((action: any, index: number) => ({
+        step: Number(action.step ?? index + 1),
+        module: action.module,
+        operation: action.operation,
+      }));
+    }
+
+    throw new Error(`Tipo JSON no soportado: ${parsed.type}`);
+  }
+*/
+  function formatJsonResponse(text: string) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
+      return text;
+    }
+
+    try {
+      const jsonText = text.slice(start, end + 1);
+      const parsed = JSON.parse(jsonText);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return text;
+    }
+  }
 
   async function sendMessage() {
     const text = input.trim();
@@ -146,16 +205,10 @@ export default function App() {
     setInput('');
     setIsGenerating(true);
 
-    const systemPrompt = buildApiServicesPrompt();
-
     const userMessage: ChatMessage = {
       role: 'user',
       content: text,
     };
-
-    // No mandamos historial viejo al modelo.
-    // En pantalla se ve todo, pero el modelo solo recibe prompt + última orden.
-    const chatForModel: ChatMessage[] = [systemPrompt, userMessage];
 
     setMessages(prev => [
       ...prev,
@@ -167,17 +220,25 @@ export default function App() {
     ]);
 
     try {
-      setStatus('Generando JSON...');
+      setStatus('Probando planner con JSON Schema...');
+
+      const plannerPrompt = buildPlannerPrompt();
 
       const finalAnswer = await generateCompletion({
         context: contextRef.current,
-        chat: chatForModel,
+        chat: [plannerPrompt, userMessage],
+        responseFormat: plannerResponseFormat,
+        generationParams: {
+          n_predict: 128,
+          temperature: 0.1,
+          top_p: 0.8,
+        },
         onToken: (_token, fullText) => {
           setMessages(prev => updateLastAssistant(prev, fullText));
         },
       });
-
-      setMessages(prev => updateLastAssistant(prev, finalAnswer));
+      const formatted = formatJsonResponse(finalAnswer);
+      setMessages(prev => updateLastAssistant(prev, formatted));
       setStatus('Listo.');
     } catch (error: any) {
       console.error(error);

@@ -12,8 +12,8 @@ export type LlamaContext = any;
 
 export const MODEL_DIR = `${RNFS.ExternalDirectoryPath}/models`;
 
-// Cambia este nombre si tu modelo se llama distinto.
-export const DEFAULT_MODEL_PATH = `${MODEL_DIR}/qwen-code.gguf`;
+// Cambia el nombre si tu modelo tiene otro nombre.
+export const DEFAULT_MODEL_PATH = `${MODEL_DIR}/qwen-normal.gguf`;
 
 const STOP_WORDS = [
   '</s>',
@@ -35,7 +35,7 @@ const LLAMA_PARAMS = {
   use_mlock: false,
 };
 
-const GENERATION_PARAMS = {
+const DEFAULT_GENERATION_PARAMS = {
   n_predict: 256,
   temperature: 0.2,
   top_p: 0.9,
@@ -142,24 +142,40 @@ export async function clearModelCache(context: LlamaContext | null) {
   await context.clearCache();
 }
 
-type GenerateParams = {
+type GenerateCompletionParams = {
   context: LlamaContext;
   chat: ChatMessage[];
+  responseFormat?: any;
+  generationParams?: Partial<typeof DEFAULT_GENERATION_PARAMS>;
   onToken?: (token: string, fullText: string) => void;
 };
 
 export async function generateCompletion({
   context,
   chat,
+  responseFormat,
+  generationParams,
   onToken,
-}: GenerateParams) {
+}: GenerateCompletionParams) {
   let streamedText = '';
 
+  const completionParams: any = {
+    messages: chat,
+    ...DEFAULT_GENERATION_PARAMS,
+    ...generationParams,
+  };
+
+  /**
+   * Esto activa JSON Schema / grammar si lo mandamos desde App.tsx.
+   * Para planner usamos plannerResponseFormat.
+   * Para generator usamos buildApiServiceResponseFormatForModule(...).
+   */
+  if (responseFormat) {
+    completionParams.response_format = responseFormat;
+  }
+
   const result = await context.completion(
-    {
-      messages: chat,
-      ...GENERATION_PARAMS,
-    },
+    completionParams,
     (data: any) => {
       const token = data?.token ?? '';
 
