@@ -13,7 +13,7 @@ export type LlamaContext = any;
 export const MODEL_DIR = `${RNFS.ExternalDirectoryPath}/models`;
 
 // Cambia el nombre si tu modelo tiene otro nombre.
-export const DEFAULT_MODEL_PATH = `${MODEL_DIR}/qwen-normal.gguf`;
+export const DEFAULT_MODEL_PATH = `${MODEL_DIR}/qwen15.gguf`;
 
 const STOP_WORDS = [
   '</s>',

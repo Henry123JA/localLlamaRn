@@ -10,6 +10,60 @@ const allOperationNames = Array.from(
   ),
 );
 
+function buildOkPlannerItems() {
+  return API_MODULES.map(moduleSchema => ({
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      step: {
+        type: 'number',
+      },
+      status: {
+        type: 'string',
+        enum: ['ok'],
+      },
+      module: {
+        type: 'string',
+        enum: [moduleSchema.module],
+      },
+      operation: {
+        type: 'string',
+        enum: moduleSchema.operations.map(operation => operation.operation),
+      },
+      message: {
+        type: 'string',
+      },
+    },
+    required: ['step', 'status', 'module', 'operation', 'message'],
+  }));
+}
+
+const unsupportedPlannerItem = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    step: {
+      type: 'number',
+    },
+    status: {
+      type: 'string',
+      enum: ['unsupported'],
+    },
+    module: {
+      type: 'string',
+      enum: moduleNames,
+    },
+    operation: {
+      type: 'string',
+      enum: allOperationNames,
+    },
+    message: {
+      type: 'string',
+    },
+  },
+  required: ['step', 'status', 'module', 'operation', 'message'],
+};
+
 export const plannerResponseFormat = {
   type: 'json_schema',
   json_schema: {
@@ -23,29 +77,17 @@ export const plannerResponseFormat = {
           type: 'string',
           enum: ['action_plan'],
         },
-        actions: {
+        items: {
           type: 'array',
           items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              step: {
-                type: 'number',
-              },
-              module: {
-                type: 'string',
-                enum: moduleNames,
-              },
-              operation: {
-                type: 'string',
-                enum: allOperationNames,
-              },
-            },
-            required: ['step', 'module', 'operation'],
+            oneOf: [
+              ...buildOkPlannerItems(),
+              unsupportedPlannerItem,
+            ],
           },
         },
       },
-      required: ['type', 'actions'],
+      required: ['type', 'items'],
     },
   },
 };

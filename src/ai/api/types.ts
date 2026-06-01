@@ -1,4 +1,5 @@
 export type FieldType = 'string' | 'number' | 'date';
+export type ActionPlanItemStatus = 'ok' | 'unsupported';
 
 export type ApiField = {
   name: string;
@@ -21,6 +22,20 @@ export type ApiModuleSchema = {
   module: string;
   aliases: string[];
   operations: ApiOperationSchema[];
+};
+
+
+export type ActionPlanItem = {
+  step: number;
+  status: ActionPlanItemStatus;
+  module: string;
+  operation: string;
+  message: string;
+};
+
+export type ActionPlan = {
+  type: 'action_plan';
+  items: ActionPlanItem[];
 };
 
 export type PlannedAction = {
