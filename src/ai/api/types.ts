@@ -1,5 +1,4 @@
 export type FieldType = 'string' | 'number' | 'date';
-export type ActionPlanItemStatus = 'ok' | 'unsupported';
 
 export type ApiField = {
   name: string;
@@ -24,13 +23,12 @@ export type ApiModuleSchema = {
   operations: ApiOperationSchema[];
 };
 
+export type ActionPlanItemStatus = 'ok' | 'unsupported';
 
 export type ActionPlanItem = {
   step: number;
   status: ActionPlanItemStatus;
-  module: string;
-  operation: string;
-  message: string;
+  action_key: string;
 };
 
 export type ActionPlan = {

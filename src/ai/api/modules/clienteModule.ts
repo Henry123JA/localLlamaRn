@@ -51,7 +51,7 @@ export const clienteModule: ApiModuleSchema = {
     },
     {
       operation: 'delete',
-      aliases: ['eliminar', 'elimina', 'borrar', 'borra', 'quitar'],
+      aliases: ['eliminar', 'elimina', 'borrar', 'borra','quita', 'quitar'],
       method: 'DELETE',
       path: '/cliente/:id',
       requiresId: true,

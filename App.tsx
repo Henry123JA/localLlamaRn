@@ -1,17 +1,17 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import {Alert, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View,} from 'react-native';
 
 import {styles} from './src/appStyles';
-import {buildPlannerPrompt} from './src/ai/apiServicesPrompt';
-import {plannerResponseFormat} from './src/ai/api/schemas';
+import {
+  buildPlannerPrompt,
+  buildSingleActionPrompt,
+  type PlannedAction,
+} from './src/ai/apiServicesPrompt';
+
+import {
+  plannerResponseFormat,
+  buildApiServiceResponseFormatForModule,
+} from './src/ai/api/schemas';
 import {
   ChatMessage,
   DEFAULT_MODEL_PATH,
@@ -92,20 +92,6 @@ export default function App() {
       setModelLoaded(false);
     }
   }
-
-  async function releaseModel() {
-    try {
-      await releaseModelContext(contextRef.current);
-
-      contextRef.current = null;
-      setModelLoaded(false);
-      setIsGenerating(false);
-      setStatus('Memoria liberada.');
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
   async function stopGeneration() {
     try {
       await stopModelGeneration(contextRef.current);
@@ -115,80 +101,82 @@ export default function App() {
     }
   }
 
-  async function clearConversationCache() {
-    try {
-      await clearModelCache(contextRef.current);
+  async function clearConversationView() {
+  try {
+    await clearModelCache(contextRef.current);
 
-      setMessages([
-        {
-          role: 'assistant',
-          content: 'Conversación reiniciada.',
-        },
-      ]);
+    setMessages([
+      {
+        role: 'assistant',
+        content: 'Pantalla y cache limpiadas.',
+      },
+    ]);
 
-      setStatus('Cache de conversación limpiada.');
-    } catch (error) {
-      console.error(error);
-    }
+    setStatus('Pantalla y cache del modelo limpiadas.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Error limpiando pantalla/cache.');
   }
-/*
-  function extractJson(text: string) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
+}
 
-    if (start === -1 || end === -1 || end <= start) {
-      throw new Error('La respuesta no contiene JSON válido.');
-    }
+  type PlannerItem = {
+  step: number;
+  status: 'ok' | 'unsupported';
+  action_key: string;
+  };
 
-    return text.slice(start, end + 1);
+function formatJsonResponse(text: string) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+
+  if (start === -1 || end === -1 || end <= start) {
+    return text;
   }
 
-  function parseActionPlan(text: string): PlannedAction[] {
-    const jsonText = extractJson(text);
+  try {
+    const jsonText = text.slice(start, end + 1);
     const parsed = JSON.parse(jsonText);
-
-    if (!Array.isArray(parsed.actions)) {
-      throw new Error('actions debe ser un array.');
-    }
-
-    // Caso correcto: el planner devolvió action_plan
-    if (parsed.type === 'action_plan') {
-      return parsed.actions.map((action: any, index: number) => ({
-        step: Number(action.step ?? index + 1),
-        module: action.module,
-        operation: action.operation,
-      }));
-    }
-
-    // Caso tolerado: el modelo se adelantó y devolvió api_services
-    // Entonces convertimos sus actions a un plan simple.
-    if (parsed.type === 'api_services') {
-      return parsed.actions.map((action: any, index: number) => ({
-        step: Number(action.step ?? index + 1),
-        module: action.module,
-        operation: action.operation,
-      }));
-    }
-
-    throw new Error(`Tipo JSON no soportado: ${parsed.type}`);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return text;
   }
-*/
-  function formatJsonResponse(text: string) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
+}
 
-    if (start === -1 || end === -1 || end <= start) {
-      return text;
-    }
+function parsePlannerItems(text: string): PlannerItem[] {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
 
-    try {
-      const jsonText = text.slice(start, end + 1);
-      const parsed = JSON.parse(jsonText);
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return text;
-    }
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('El planner no devolvió JSON válido.');
   }
+
+  const jsonText = text.slice(start, end + 1);
+  const parsed = JSON.parse(jsonText);
+
+  if (parsed.type !== 'action_plan') {
+    throw new Error('La respuesta no es action_plan.');
+  }
+
+  if (!Array.isArray(parsed.items)) {
+    throw new Error('items debe ser un array.');
+  }
+
+  return parsed.items;
+}
+
+function actionKeyToPlannedAction(item: PlannerItem): PlannedAction {
+  const [module, operation] = item.action_key.split('.');
+
+  if (!module || !operation) {
+    throw new Error(`action_key inválido: ${item.action_key}`);
+  }
+
+  return {
+    step: item.step,
+    module,
+    operation,
+  };
+}
 
   async function sendMessage() {
     const text = input.trim();
@@ -221,6 +209,7 @@ export default function App() {
 
     try {
       setStatus('Probando planner con JSON Schema...');
+
 
       const plannerPrompt = buildPlannerPrompt();
 
@@ -278,17 +267,10 @@ export default function App() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, styles.releaseButton]}
-          onPress={releaseModel}
-          disabled={isGenerating}>
-          <Text style={styles.buttonText}>Liberar memoria</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.button, styles.cacheButton]}
-          onPress={clearConversationCache}
-          disabled={!modelLoaded || isGenerating}>
-          <Text style={styles.buttonText}>Limpiar conversación</Text>
+          onPress={clearConversationView}
+          disabled={isGenerating}>
+          <Text style={styles.buttonText}>Limpiar pantalla/Cache</Text>
         </TouchableOpacity>
 
         <Text style={styles.status}>{status}</Text>

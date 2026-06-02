@@ -57,3 +57,69 @@ Operaciones:
 ${operations}`;
   }).join('\n\n');
 }
+
+export function buildPlannerModulesDescriptionForPrompt() {
+  return API_MODULES.map(moduleSchema => {
+    const moduleAliases = moduleSchema.aliases.join(', ');
+
+    const operations = moduleSchema.operations
+      .map(operation => {
+        const operationAliases = operation.aliases.join(', ');
+
+        return `- ${operation.operation}: ${operation.description}. Alias: ${operationAliases}`;
+      })
+      .join('\n');
+
+    return `Módulo: ${moduleSchema.module}
+Alias: ${moduleAliases}
+Operaciones:
+${operations}`;
+  }).join('\n\n');
+}
+export function getActionKeys() {
+  return API_MODULES.flatMap(moduleSchema =>
+    moduleSchema.operations.map(operation => {
+      return `${moduleSchema.module}.${operation.operation}`;
+    }),
+  );
+}
+
+export function getActionByKey(actionKey: string) {
+  const [moduleName, operationName] = actionKey.split('.');
+
+  if (!moduleName || !operationName) {
+    return null;
+  }
+
+  const moduleSchema = getModuleByName(moduleName);
+
+  if (!moduleSchema) {
+    return null;
+  }
+
+  const operationSchema =
+    moduleSchema.operations.find(item => item.operation === operationName) ??
+    null;
+
+  if (!operationSchema) {
+    return null;
+  }
+
+  return {
+    moduleSchema,
+    operationSchema,
+  };
+}
+export function buildPlannerActionsDescriptionForPrompt() {
+  return API_MODULES.map(moduleSchema => {
+    const moduleAliases = moduleSchema.aliases.join(', ');
+
+    const actions = moduleSchema.operations
+      .map(operation => {
+        return `${moduleSchema.module}.${operation.operation} (${operation.aliases.join(', ')})`;
+      })
+      .join('; ');
+
+    return `- ${moduleSchema.module} [alias: ${moduleAliases}] => ${actions}`;
+  }).join('\n');
+}

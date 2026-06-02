@@ -1,68 +1,6 @@
-import {API_MODULES} from './modules';
+import {API_MODULES, getActionKeys} from './modules';
 
-const moduleNames = API_MODULES.map(moduleSchema => moduleSchema.module);
-
-const allOperationNames = Array.from(
-  new Set(
-    API_MODULES.flatMap(moduleSchema =>
-      moduleSchema.operations.map(operation => operation.operation),
-    ),
-  ),
-);
-
-function buildOkPlannerItems() {
-  return API_MODULES.map(moduleSchema => ({
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      step: {
-        type: 'number',
-      },
-      status: {
-        type: 'string',
-        enum: ['ok'],
-      },
-      module: {
-        type: 'string',
-        enum: [moduleSchema.module],
-      },
-      operation: {
-        type: 'string',
-        enum: moduleSchema.operations.map(operation => operation.operation),
-      },
-      message: {
-        type: 'string',
-      },
-    },
-    required: ['step', 'status', 'module', 'operation', 'message'],
-  }));
-}
-
-const unsupportedPlannerItem = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    step: {
-      type: 'number',
-    },
-    status: {
-      type: 'string',
-      enum: ['unsupported'],
-    },
-    module: {
-      type: 'string',
-      enum: moduleNames,
-    },
-    operation: {
-      type: 'string',
-      enum: allOperationNames,
-    },
-    message: {
-      type: 'string',
-    },
-  },
-  required: ['step', 'status', 'module', 'operation', 'message'],
-};
+const actionKeys = getActionKeys();
 
 export const plannerResponseFormat = {
   type: 'json_schema',
@@ -80,10 +18,22 @@ export const plannerResponseFormat = {
         items: {
           type: 'array',
           items: {
-            oneOf: [
-              ...buildOkPlannerItems(),
-              unsupportedPlannerItem,
-            ],
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              step: {
+                type: 'number',
+              },
+              status: {
+                type: 'string',
+                enum: ['ok', 'unsupported'],
+              },
+              action_key: {
+                type: 'string',
+                enum: [...actionKeys, 'unsupported'],
+              },
+            },
+            required: ['step', 'status', 'action_key'],
           },
         },
       },
