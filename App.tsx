@@ -1,16 +1,18 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View,} from 'react-native';
+import { stopVoiceRecording, startVoiceRecording } from './src/voiceService';
 
 import {styles} from './src/appStyles';
-import {
+import {/*
   buildPlannerPrompt,
   buildSingleActionPrompt,
-  type PlannedAction,
+  type PlannedAction,*/
+  buildDirectGeneratorPrompt,
 } from './src/ai/apiServicesPrompt';
 
-import {
+import {/*
   plannerResponseFormat,
-  buildApiServiceResponseFormatForModule,
+  buildApiServiceResponseFormatForAction,*/
 } from './src/ai/api/schemas';
 import {
   ChatMessage,
@@ -118,13 +120,13 @@ export default function App() {
     setStatus('Error limpiando pantalla/cache.');
   }
 }
-
+/*
   type PlannerItem = {
   step: number;
   status: 'ok' | 'unsupported';
   action_key: string;
   };
-
+*/
 function formatJsonResponse(text: string) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -141,7 +143,7 @@ function formatJsonResponse(text: string) {
     return text;
   }
 }
-
+/*
 function parsePlannerItems(text: string): PlannerItem[] {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -203,17 +205,16 @@ function actionKeyToPlannedAction(item: PlannerItem): PlannedAction {
       userMessage,
       {
         role: 'assistant',
-        content: '',
+        content: 'Detectando acciones...',
       },
     ]);
 
     try {
-      setStatus('Probando planner con JSON Schema...');
-
+      setStatus('Detectando acciones...');
 
       const plannerPrompt = buildPlannerPrompt();
 
-      const finalAnswer = await generateCompletion({
+      const planText = await generateCompletion({
         context: contextRef.current,
         chat: [plannerPrompt, userMessage],
         responseFormat: plannerResponseFormat,
@@ -221,21 +222,295 @@ function actionKeyToPlannedAction(item: PlannerItem): PlannedAction {
           n_predict: 128,
           temperature: 0.1,
           top_p: 0.8,
-        },
+        },/*
         onToken: (_token, fullText) => {
           setMessages(prev => updateLastAssistant(prev, fullText));
         },
       });
-      const formatted = formatJsonResponse(finalAnswer);
-      setMessages(prev => updateLastAssistant(prev, formatted));
+
+      const plannerItems = parsePlannerItems(planText);
+
+      setMessages(prev =>
+        //updateLastAssistant(prev, formatJsonResponse(planText)),
+        updateLastAssistant(prev, 'Acciones detectadas. Generando JSON final...'),
+      );
+
+      if (plannerItems.length === 0) {
+        setStatus('No se detectaron acciones.');
+        return;
+      }
+
+      for (const item of plannerItems) {
+        if (item.status === 'unsupported' || item.action_key === 'unsupported') {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: JSON.stringify(
+                {
+                  type: 'api_services_error',
+                  step: item.step,
+                  status: 'unsupported',
+                  action_key: item.action_key,
+                  message: 'Acción no soportada para las APIs registradas.',
+                },
+                null,
+                2,
+              ),
+            },
+          ]);
+
+          continue;
+        }
+
+        const plannedAction = actionKeyToPlannedAction(item);
+
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Generando JSON para ${item.action_key}...`,
+          },
+        ]);
+
+        setStatus(`Generando JSON para ${item.action_key}...`);
+
+        const actionPrompt = buildSingleActionPrompt(plannedAction);
+
+        const apiServiceJson = await generateCompletion({
+          context: contextRef.current,
+          chat: [
+            actionPrompt,
+            {
+              role: 'user',
+              content: 'Genera el JSON API Services para esta acción.',
+            },
+          ],/*
+          responseFormat: buildApiServiceResponseFormatForModule(
+            plannedAction.module,
+          ),
+          responseFormat: buildApiServiceResponseFormatForAction(plannedAction),
+          generationParams: {
+            n_predict: 256,
+            temperature: 0.2,
+            top_p: 0.9,
+          },
+          onToken: (_token, fullText) => {
+            setMessages(prev => updateLastAssistant(prev, fullText));
+          },
+        });
+
+        setMessages(prev =>
+          updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
+        );
+      }
+
       setStatus('Listo.');
     } catch (error: any) {
       console.error(error);
-      setStatus(`Error generando:\n${String(error?.message ?? error)}`);
+
+      setMessages(prev =>
+        updateLastAssistant(
+          prev,
+          `Error: ${String(error?.message ?? error)}`,
+        ),
+      );
+
+      setStatus(`Error:\n${String(error?.message ?? error)}`);
     } finally {
       setIsGenerating(false);
     }
+  }*/
+  /*  sin planner para probar rapido */
+async function generateDirectApiServices(
+  userMessage: string,
+  onToken?: (_token: string, fullText: string) => void,
+) {
+  const directPrompt: ChatMessage = {
+    role: 'system',
+    content: buildDirectGeneratorPrompt(userMessage),
+  };
+
+  return await generateCompletion({
+    context: contextRef.current!,
+    chat: [
+      directPrompt,
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
+    generationParams: {
+      n_predict: 512,
+      temperature: 0.1,
+      top_p: 0.8,
+    },
+    onToken,
+  });
+}/*
+function cleanAndParseJson(text: string) {
+  let cleaned = text.trim();
+
+  cleaned = cleaned
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error("No se encontró JSON válido en la respuesta del modelo");
   }
+
+  cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+
+  return JSON.parse(cleaned);
+}*/
+async function sendMessageFromText(text: string) {
+  const cleanText = text.trim();
+
+  if (!cleanText) return;
+
+  if (!modelLoaded || !contextRef.current) {
+    Alert.alert('Primero carga el modelo GGUF.');
+    return;
+  }
+
+  setInput('');
+  setIsGenerating(true);
+
+  const userMessage: ChatMessage = {
+    role: 'user',
+    content: cleanText,
+  };
+
+  setMessages(prev => [
+    ...prev,
+    userMessage,
+    {
+      role: 'assistant',
+      content: 'Generando JSON directo...',
+    },
+  ]);
+
+  try {
+    setStatus('Generando JSON directo...');
+
+    const apiServiceJson = await generateDirectApiServices(
+      cleanText,
+      (_token, fullText) => {
+        setMessages(prev => updateLastAssistant(prev, fullText));
+      },
+    );
+
+    setMessages(prev =>
+      updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
+    );
+
+    setStatus('Listo.');
+  } catch (error: any) {
+    console.error(error);
+
+    setMessages(prev =>
+      updateLastAssistant(
+        prev,
+        `Error: ${String(error?.message ?? error)}`,
+      ),
+    );
+
+    setStatus(`Error:\n${String(error?.message ?? error)}`);
+  } finally {
+    setIsGenerating(false);
+  }
+}
+
+const handlePressIn = async () => {
+  setStatus('Grabando...');
+  await startVoiceRecording();
+};
+
+// Botón de grabar (soltar)
+const handlePressOut = async () => {
+  setStatus('Transcribiendo...');
+  const text = await stopVoiceRecording();
+
+  if (!text) {
+    setStatus('No se detectó texto.');
+    return;
+  }
+
+  setInput(text);
+  await sendMessageFromText(text);
+  setStatus('Listo');
+};
+
+
+
+
+
+
+  async function sendMessage() {
+  const text = input.trim();
+  await sendMessageFromText(text);
+
+  if (!text) return;
+
+  if (!modelLoaded || !contextRef.current) {
+    Alert.alert('Primero carga el modelo GGUF.');
+    return;
+  }
+
+  setInput('');
+  setIsGenerating(true);
+
+  const userMessage: ChatMessage = {
+    role: 'user',
+    content: text,
+  };
+
+  setMessages(prev => [
+    ...prev,
+    userMessage,
+    {
+      role: 'assistant',
+      content: 'Generando JSON directo...',
+    },
+  ]);
+
+  try {
+    setStatus('Generando JSON directo...');
+/*
+    const directPrompt: ChatMessage = {
+      role: 'system',
+      content: buildDirectGeneratorPrompt(text),
+    };*/
+
+    const apiServiceJson = await generateDirectApiServices(text, (_token, fullText) => {
+      setMessages(prev => updateLastAssistant(prev, fullText));
+    });
+
+    setMessages(prev =>
+      updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
+    );
+
+    setStatus('Listo.');
+  } catch (error: any) {
+    console.error(error);
+
+    setMessages(prev =>
+      updateLastAssistant(
+        prev,
+        `Error: ${String(error?.message ?? error)}`,
+      ),
+    );
+
+    setStatus(`Error:\n${String(error?.message ?? error)}`);
+  } finally {
+    setIsGenerating(false);
+  }
+}
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -311,11 +586,22 @@ function actionKeyToPlannedAction(item: PlannerItem): PlannedAction {
             <Text style={styles.buttonText}>Stop</Text>
           </TouchableOpacity>
         ) : (
+          <>
+          <TouchableOpacity style={styles.voiceButton}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+          >
+            <Text style={styles.buttonText}>🎤</Text>
+          </TouchableOpacity>
+          
+
           <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
             <Text style={styles.buttonText}>Enviar</Text>
           </TouchableOpacity>
+          </>
         )}
       </View>
     </SafeAreaView>
   );
 }
+

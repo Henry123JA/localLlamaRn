@@ -107,4 +107,11 @@ export const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
   },
+  voiceButton: {
+    backgroundColor: '#e84c4c',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginRight: 8,
+  },
 });
