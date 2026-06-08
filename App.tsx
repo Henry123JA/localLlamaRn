@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View,} from 'react-native';
-import { stopVoiceRecording, startVoiceRecording } from './src/voiceService';
+import { preloadWhisperModel, stopVoiceRecording, startVoiceRecording } from './src/voiceService';
 
 import {styles} from './src/appStyles';
 import {/*
@@ -63,37 +63,43 @@ export default function App() {
   }
 
   async function loadModel() {
-    try {
-      setStatus('Verificando modelo...');
+  try {
+    setStatus('Verificando modelo...');
 
-      if (contextRef.current) {
-        setStatus('Liberando modelo anterior...');
-        await releaseModelContext(contextRef.current);
-        contextRef.current = null;
-        setModelLoaded(false);
-      }
-
-      setStatus('Cargando modelo en memoria...');
-
-      const {context, statusText} = await loadModelContext(
-        modelPath,
-        progress => {
-          setStatus(`Cargando modelo... ${Math.round(progress * 100)}%`);
-        },
-      );
-
-      contextRef.current = context;
-      setModelLoaded(true);
-      setStatus(statusText);
-    } catch (error: any) {
-      console.error(error);
-
-      Alert.alert('Error cargando modelo', String(error?.message ?? error));
-
-      setStatus(`Error cargando modelo:\n${String(error?.message ?? error)}`);
+    if (contextRef.current) {
+      setStatus('Liberando modelo anterior...');
+      await releaseModelContext(contextRef.current);
+      contextRef.current = null;
       setModelLoaded(false);
     }
+
+    setStatus('Cargando modelo GGUF en memoria...');
+
+    const { context, statusText } = await loadModelContext(
+      modelPath,
+      progress => {
+        setStatus(`Cargando modelo GGUF... ${Math.round(progress)}%`);
+      },
+    );
+
+    contextRef.current = context;
+    setModelLoaded(true);
+    setStatus(statusText);
+
+    setStatus('Cargando modelo de voz Whisper...');
+
+    await preloadWhisperModel();
+
+    setStatus('Modelos listos: GGUF + voz.');
+  } catch (error: any) {
+    console.error(error);
+
+    Alert.alert('Error cargando modelo', String(error?.message ?? error));
+
+    setStatus(`Error cargando modelo:\n${String(error?.message ?? error)}`);
+    setModelLoaded(false);
   }
+}
   async function stopGeneration() {
     try {
       await stopModelGeneration(contextRef.current);
@@ -433,16 +439,20 @@ const handlePressIn = async () => {
 // Botón de grabar (soltar)
 const handlePressOut = async () => {
   setStatus('Transcribiendo...');
-  const text = await stopVoiceRecording();
-
-  if (!text) {
-    setStatus('No se detectó texto.');
-    return;
+  try {
+    const text = await stopVoiceRecording();
+    setStatus(`Whisper: "${text || 'VACIO'}"`);
+    
+    if (!text) {
+      setStatus('No se detectó texto.');
+      return;
+    }
+    setInput(text);
+    await sendMessageFromText(text);
+    setStatus('Listo');
+  } catch (e: any) {
+    setStatus(`Error: ${e.message}`);
   }
-
-  setInput(text);
-  await sendMessageFromText(text);
-  setStatus('Listo');
 };
 
 
@@ -575,7 +585,7 @@ const handlePressOut = async () => {
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Ej: crea un usuario"
+          placeholder="Ej: crea un cliente"
           placeholderTextColor="#888"
           editable={!isGenerating}
           multiline
