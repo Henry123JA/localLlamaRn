@@ -122,10 +122,7 @@ export async function stopVoiceRecording(): Promise<string> {
       tokenTimestamps: false,
     });
     const result = await promise;
-    //console.log('Resultado Whisper:', JSON.stringify(result));
-    //return String(result?.result ?? '').trim();
     const trimmed = String(result?.result ?? '').trim();
-// muestra aunque esté vacío
     return trimmed || '__VACIO__';
   } finally {
     isTranscribing = false;

@@ -1,19 +1,16 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View,} from 'react-native';
 import { preloadWhisperModel, stopVoiceRecording, startVoiceRecording } from './src/voiceService';
+import {
+  cleanAndParseJson,
+  validateApiServicesJson,
+} from './src/ai/api/apiServicesValidator';
 
 import {styles} from './src/appStyles';
-import {/*
-  buildPlannerPrompt,
-  buildSingleActionPrompt,
-  type PlannedAction,*/
+import {
   buildDirectGeneratorPrompt,
 } from './src/ai/apiServicesPrompt';
 
-import {/*
-  plannerResponseFormat,
-  buildApiServiceResponseFormatForAction,*/
-} from './src/ai/api/schemas';
 import {
   ChatMessage,
   DEFAULT_MODEL_PATH,
@@ -63,7 +60,7 @@ export default function App() {
   }
 
   async function loadModel() {
-  try {
+    try {
     setStatus('Verificando modelo...');
 
     if (contextRef.current) {
@@ -127,12 +124,6 @@ export default function App() {
   }
 }
 /*
-  type PlannerItem = {
-  step: number;
-  status: 'ok' | 'unsupported';
-  action_key: string;
-  };
-*/
 function formatJsonResponse(text: string) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -148,185 +139,7 @@ function formatJsonResponse(text: string) {
   } catch {
     return text;
   }
-}
-/*
-function parsePlannerItems(text: string): PlannerItem[] {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error('El planner no devolvió JSON válido.');
-  }
-
-  const jsonText = text.slice(start, end + 1);
-  const parsed = JSON.parse(jsonText);
-
-  if (parsed.type !== 'action_plan') {
-    throw new Error('La respuesta no es action_plan.');
-  }
-
-  if (!Array.isArray(parsed.items)) {
-    throw new Error('items debe ser un array.');
-  }
-
-  return parsed.items;
-}
-
-function actionKeyToPlannedAction(item: PlannerItem): PlannedAction {
-  const [module, operation] = item.action_key.split('.');
-
-  if (!module || !operation) {
-    throw new Error(`action_key inválido: ${item.action_key}`);
-  }
-
-  return {
-    step: item.step,
-    module,
-    operation,
-  };
-}
-
-  async function sendMessage() {
-    const text = input.trim();
-
-    if (!text) {
-      return;
-    }
-
-    if (!modelLoaded || !contextRef.current) {
-      Alert.alert('Primero carga el modelo GGUF.');
-      return;
-    }
-
-    setInput('');
-    setIsGenerating(true);
-
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: text,
-    };
-
-    setMessages(prev => [
-      ...prev,
-      userMessage,
-      {
-        role: 'assistant',
-        content: 'Detectando acciones...',
-      },
-    ]);
-
-    try {
-      setStatus('Detectando acciones...');
-
-      const plannerPrompt = buildPlannerPrompt();
-
-      const planText = await generateCompletion({
-        context: contextRef.current,
-        chat: [plannerPrompt, userMessage],
-        responseFormat: plannerResponseFormat,
-        generationParams: {
-          n_predict: 128,
-          temperature: 0.1,
-          top_p: 0.8,
-        },/*
-        onToken: (_token, fullText) => {
-          setMessages(prev => updateLastAssistant(prev, fullText));
-        },
-      });
-
-      const plannerItems = parsePlannerItems(planText);
-
-      setMessages(prev =>
-        //updateLastAssistant(prev, formatJsonResponse(planText)),
-        updateLastAssistant(prev, 'Acciones detectadas. Generando JSON final...'),
-      );
-
-      if (plannerItems.length === 0) {
-        setStatus('No se detectaron acciones.');
-        return;
-      }
-
-      for (const item of plannerItems) {
-        if (item.status === 'unsupported' || item.action_key === 'unsupported') {
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: JSON.stringify(
-                {
-                  type: 'api_services_error',
-                  step: item.step,
-                  status: 'unsupported',
-                  action_key: item.action_key,
-                  message: 'Acción no soportada para las APIs registradas.',
-                },
-                null,
-                2,
-              ),
-            },
-          ]);
-
-          continue;
-        }
-
-        const plannedAction = actionKeyToPlannedAction(item);
-
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: `Generando JSON para ${item.action_key}...`,
-          },
-        ]);
-
-        setStatus(`Generando JSON para ${item.action_key}...`);
-
-        const actionPrompt = buildSingleActionPrompt(plannedAction);
-
-        const apiServiceJson = await generateCompletion({
-          context: contextRef.current,
-          chat: [
-            actionPrompt,
-            {
-              role: 'user',
-              content: 'Genera el JSON API Services para esta acción.',
-            },
-          ],/*
-          responseFormat: buildApiServiceResponseFormatForModule(
-            plannedAction.module,
-          ),
-          responseFormat: buildApiServiceResponseFormatForAction(plannedAction),
-          generationParams: {
-            n_predict: 256,
-            temperature: 0.2,
-            top_p: 0.9,
-          },
-          onToken: (_token, fullText) => {
-            setMessages(prev => updateLastAssistant(prev, fullText));
-          },
-        });
-
-        setMessages(prev =>
-          updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
-        );
-      }
-
-      setStatus('Listo.');
-    } catch (error: any) {
-      console.error(error);
-
-      setMessages(prev =>
-        updateLastAssistant(
-          prev,
-          `Error: ${String(error?.message ?? error)}`,
-        ),
-      );
-
-      setStatus(`Error:\n${String(error?.message ?? error)}`);
-    } finally {
-      setIsGenerating(false);
-    }
-  }*/
+}*/
   /*  sin planner para probar rapido */
 async function generateDirectApiServices(
   userMessage: string,
@@ -353,26 +166,8 @@ async function generateDirectApiServices(
     },
     onToken,
   });
-}/*
-function cleanAndParseJson(text: string) {
-  let cleaned = text.trim();
+}
 
-  cleaned = cleaned
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const firstBrace = cleaned.indexOf("{");
-  const lastBrace = cleaned.lastIndexOf("}");
-
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error("No se encontró JSON válido en la respuesta del modelo");
-  }
-
-  cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-
-  return JSON.parse(cleaned);
-}*/
 async function sendMessageFromText(text: string) {
   const cleanText = text.trim();
 
@@ -386,14 +181,12 @@ async function sendMessageFromText(text: string) {
   setInput('');
   setIsGenerating(true);
 
-  const userMessage: ChatMessage = {
-    role: 'user',
-    content: cleanText,
-  };
-
   setMessages(prev => [
     ...prev,
-    userMessage,
+    {
+      role: 'user',
+      content: cleanText,
+    },
     {
       role: 'assistant',
       content: 'Generando JSON directo...',
@@ -410,22 +203,24 @@ async function sendMessageFromText(text: string) {
       },
     );
 
+    const parsedJson = cleanAndParseJson(apiServiceJson);
+    const validJson = validateApiServicesJson(parsedJson);
+
     setMessages(prev =>
-      updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
+      updateLastAssistant(prev, JSON.stringify(validJson, null, 2)),
     );
 
     setStatus('Listo.');
   } catch (error: any) {
     console.error(error);
 
+    const errorMessage = String(error?.message ?? error);
+
     setMessages(prev =>
-      updateLastAssistant(
-        prev,
-        `Error: ${String(error?.message ?? error)}`,
-      ),
+      updateLastAssistant(prev, `Error: ${errorMessage}`),
     );
 
-    setStatus(`Error:\n${String(error?.message ?? error)}`);
+    setStatus(`Error:\n${errorMessage}`);
   } finally {
     setIsGenerating(false);
   }
@@ -443,7 +238,7 @@ const handlePressOut = async () => {
     const text = await stopVoiceRecording();
     setStatus(`Whisper: "${text || 'VACIO'}"`);
     
-    if (!text) {
+    if (!text || text === '__VACIO__') {
       setStatus('No se detectó texto.');
       return;
     }
@@ -455,70 +250,10 @@ const handlePressOut = async () => {
   }
 };
 
-
-
-
-
-
+// -----------------PRINCIPAL-----------------
   async function sendMessage() {
   const text = input.trim();
   await sendMessageFromText(text);
-
-  if (!text) return;
-
-  if (!modelLoaded || !contextRef.current) {
-    Alert.alert('Primero carga el modelo GGUF.');
-    return;
-  }
-
-  setInput('');
-  setIsGenerating(true);
-
-  const userMessage: ChatMessage = {
-    role: 'user',
-    content: text,
-  };
-
-  setMessages(prev => [
-    ...prev,
-    userMessage,
-    {
-      role: 'assistant',
-      content: 'Generando JSON directo...',
-    },
-  ]);
-
-  try {
-    setStatus('Generando JSON directo...');
-/*
-    const directPrompt: ChatMessage = {
-      role: 'system',
-      content: buildDirectGeneratorPrompt(text),
-    };*/
-
-    const apiServiceJson = await generateDirectApiServices(text, (_token, fullText) => {
-      setMessages(prev => updateLastAssistant(prev, fullText));
-    });
-
-    setMessages(prev =>
-      updateLastAssistant(prev, formatJsonResponse(apiServiceJson)),
-    );
-
-    setStatus('Listo.');
-  } catch (error: any) {
-    console.error(error);
-
-    setMessages(prev =>
-      updateLastAssistant(
-        prev,
-        `Error: ${String(error?.message ?? error)}`,
-      ),
-    );
-
-    setStatus(`Error:\n${String(error?.message ?? error)}`);
-  } finally {
-    setIsGenerating(false);
-  }
 }
 
 
