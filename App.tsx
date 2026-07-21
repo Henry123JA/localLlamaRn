@@ -4,6 +4,7 @@ import { preloadWhisperModel, stopVoiceRecording, startVoiceRecording } from './
 import { cleanAndParseJson, validateApiServicesJson, } from './src/ai/api/apiServicesValidator';
 import {styles} from './src/appStyles';
 import { buildDirectGeneratorPrompt, } from './src/ai/apiServicesPrompt';
+import { executeApiServices } from './src/ai/api/executeApiServices';
 import {
   ChatMessage,
   DEFAULT_MODEL_PATH,
@@ -217,21 +218,33 @@ async function sendMessageFromText(text: string) {
     // Limpia Markdown y convierte el texto en objeto.
     const parsedJson = cleanAndParseJson(apiServiceJson);
 
-    // Solamente verifica que sea un objeto JSON.
-    const validJson = validateApiServicesJson(parsedJson);
+    const validJson =
+      validateApiServicesJson(parsedJson);
 
-    console.log('JSON PARSEADO:', parsedJson);
     console.log('JSON VALIDADO:', validJson);
 
-    // Muestra siempre la respuesta final completa y formateada.
+    setStatus('Enviando acciones al ERP...');
+
+    const results =
+      await executeApiServices(validJson);
+
+    console.log('RESPUESTAS DEL ERP:', results);
+
     setMessages(prev =>
       updateLastAssistant(
         prev,
-        JSON.stringify(validJson, null, 2),
+        JSON.stringify(
+          {
+            generated: validJson,
+            results,
+          },
+          null,
+          2,
+        ),
       ),
     );
 
-    setStatus('JSON generado correctamente.');
+    setStatus('Acciones ejecutadas correctamente.');
   } catch (error: unknown) {
     console.error(error);
 

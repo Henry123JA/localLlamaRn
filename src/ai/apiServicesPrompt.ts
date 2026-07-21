@@ -43,7 +43,7 @@ clientes.eliminar(
 compras.listar()
 
 compras.crear(
-  inventario_id:integer>0,
+  inventario_id:integer>=1,
   cantidad:integer>0,
   costo_unitario:number>=0
 )
@@ -51,8 +51,8 @@ compras.crear(
 ventas.listar()
 
 ventas.crear(
-  inventario_id:integer>0,
-  cliente_id:integer>0,
+  inventario_id:integer>=1,
+  cliente_id:integer>=1,
   cantidad:integer>0
 )
 
@@ -65,7 +65,12 @@ REGLAS:
 - number significa número sin comillas.
 - string significa texto entre comillas.
 - Conserva exactamente los valores indicados por el usuario.
-- Si faltan datos inventalos, pero que sean coherentes con la solicitud.
+- Si falta un nombre o una descripción, invéntalos de manera creativa, natural y coherente con el producto solicitado.
+- Los nombres inventados deben parecer nombres comerciales reales y describir el producto.
+- Nunca uses nombres genéricos como "Inventario 1", "Producto 1", "Ítem 1", "Artículo 1", "Prueba" o "Sin nombre".
+- No uses el nombre del módulo como nombre del producto.
+- Si se crean varios productos, asigna a cada uno un nombre diferente y específico.
+- Si faltan otros datos, invéntalos de manera coherente con la solicitud.
 - No agregues editar o eliminar a módulos que no lo permitan.
 - Una compra o venta ya modifica el stock; no agregues ajustar_stock.
 - Si falta información necesaria, explica el problema en message.

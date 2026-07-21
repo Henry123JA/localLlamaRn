@@ -25,7 +25,7 @@ const STOP_WORDS = [
 
 const DEFAULT_GENERATION_PARAMS = {
   n_predict: 256,
-  temperature: 0.3,
+  temperature: 0.2,
   top_p: 1,
   stop: STOP_WORDS,
 };
