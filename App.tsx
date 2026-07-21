@@ -1,16 +1,9 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View,} from 'react-native';
 import { preloadWhisperModel, stopVoiceRecording, startVoiceRecording } from './src/voiceService';
-import {
-  cleanAndParseJson,
-  validateApiServicesJson,
-} from './src/ai/api/apiServicesValidator';
-
+import { cleanAndParseJson, validateApiServicesJson, } from './src/ai/api/apiServicesValidator';
 import {styles} from './src/appStyles';
-import {
-  buildDirectGeneratorPrompt,
-} from './src/ai/apiServicesPrompt';
-
+import { buildDirectGeneratorPrompt, } from './src/ai/apiServicesPrompt';
 import {
   ChatMessage,
   DEFAULT_MODEL_PATH,
@@ -147,10 +140,10 @@ async function generateDirectApiServices(
 ) {
   const directPrompt: ChatMessage = {
     role: 'system',
-    content: buildDirectGeneratorPrompt(userMessage),
+    content: buildDirectGeneratorPrompt(/*userMessage*/),
   };
 
-  return await generateCompletion({
+  const result = await generateCompletion({
     context: contextRef.current!,
     chat: [
       directPrompt,
@@ -159,15 +152,14 @@ async function generateDirectApiServices(
         content: userMessage,
       },
     ],
-    generationParams: {
-      n_predict: 512,
-      temperature: 0.1,
-      top_p: 0.8,
-    },
     onToken,
   });
-}
 
+  console.log('RESPUESTA DIRECTA RAW:', JSON.stringify(result));
+  console.log('LONGITUD RESPUESTA:', result?.length);
+
+  return result;
+}
 async function sendMessageFromText(text: string) {
   const cleanText = text.trim();
 
@@ -196,28 +188,63 @@ async function sendMessageFromText(text: string) {
   try {
     setStatus('Generando JSON directo...');
 
+    // Permite mostrar la primera parte inmediatamente.
+    let lastUpdate = 0;
+
     const apiServiceJson = await generateDirectApiServices(
       cleanText,
       (_token, fullText) => {
-        setMessages(prev => updateLastAssistant(prev, fullText));
+        const now = Date.now();
+
+        // Actualiza visualmente como máximo una vez por segundo.
+        if (now - lastUpdate >= 1000) {
+          lastUpdate = now;
+
+          setMessages(prev =>
+            updateLastAssistant(prev, fullText),
+          );
+
+          setStatus('Generando JSON directo...');
+        }
       },
     );
 
-    const parsedJson = cleanAndParseJson(apiServiceJson);
-    const validJson = validateApiServicesJson(parsedJson);
-
-    setMessages(prev =>
-      updateLastAssistant(prev, JSON.stringify(validJson, null, 2)),
+    console.log(
+      'RESPUESTA RAW:',
+      JSON.stringify(apiServiceJson),
     );
 
-    setStatus('Listo.');
-  } catch (error: any) {
+    // Limpia Markdown y convierte el texto en objeto.
+    const parsedJson = cleanAndParseJson(apiServiceJson);
+
+    // Solamente verifica que sea un objeto JSON.
+    const validJson = validateApiServicesJson(parsedJson);
+
+    console.log('JSON PARSEADO:', parsedJson);
+    console.log('JSON VALIDADO:', validJson);
+
+    // Muestra siempre la respuesta final completa y formateada.
+    setMessages(prev =>
+      updateLastAssistant(
+        prev,
+        JSON.stringify(validJson, null, 2),
+      ),
+    );
+
+    setStatus('JSON generado correctamente.');
+  } catch (error: unknown) {
     console.error(error);
 
-    const errorMessage = String(error?.message ?? error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : String(error);
 
     setMessages(prev =>
-      updateLastAssistant(prev, `Error: ${errorMessage}`),
+      updateLastAssistant(
+        prev,
+        `Error generando JSON: ${errorMessage}`,
+      ),
     );
 
     setStatus(`Error:\n${errorMessage}`);

@@ -1,30 +1,127 @@
-const validActions: any = {
-  ventas: {
-    listar: { method: 'GET', path: '/venta', fields: [] },
-    crear: { method: 'POST', path: '/venta', fields: ['inventario_id', 'cliente_id', 'cantidad'] },
-  },
-  compras: {
-    listar: { method: 'GET', path: '/compra', fields: [] },
-    crear: { method: 'POST', path: '/compra', fields: ['inventario_id', 'cantidad', 'costo_unitario'] },
-  },
-  clientes: {
-    listar: { method: 'GET', path: '/cliente', fields: [] },
-    crear: { method: 'POST', path: '/cliente', fields: ['nombre', 'apellido', 'email'] },
-    editar: { method: 'PUT', path: '/cliente/:id', fields: ['nombre', 'apellido', 'email'] },
-    eliminar: { method: 'DELETE', path: '/cliente/:id', fields: [] },
-  },
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
+interface ActionConfig {
+  baseUrl: string;
+  method: HttpMethod;
+  path: string;
+  fields: string[];
+}
+
+type ValidActions = Record<
+  string,
+  Record<string, ActionConfig>
+>;
+
+const ERP_BASE_URL =
+  'https://hammerhead-app-6wwxx.ondigitalocean.app';
+
+export const validActions: ValidActions = {
   inventario: {
-    listar: { method: 'GET', path: '/inventario', fields: [] },
-    crear: { method: 'POST', path: '/inventario', fields: ['nombre', 'descripcion', 'precio_venta', 'cantidad'] },
-    ajustar_stock: { method: 'PUT', path: '/inventario/:id', fields: ['cambio'] },
+    listar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'GET',
+      path: '/erp/inventario/',
+      fields: [],
+    },
+
+    crear: {
+      baseUrl: ERP_BASE_URL,
+      method: 'POST',
+      path: '/erp/inventario/',
+      fields: [
+        'nombre',
+        'descripcion',
+        'precio_venta',
+        'cantidad',
+      ],
+    },
+
+    ajustar_stock: {
+      baseUrl: ERP_BASE_URL,
+      method: 'PUT',
+      path: '/erp/inventario/:id',
+      fields: ['cambio'],
+    },
+  },
+
+  clientes: {
+    listar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'GET',
+      path: '/erp/clientes',
+      fields: [],
+    },
+
+    crear: {
+      baseUrl: ERP_BASE_URL,
+      method: 'POST',
+      path: '/erp/clientes',
+      fields: ['nombre', 'apellido', 'email'],
+    },
+
+    editar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'PUT',
+      path: '/erp/clientes/:id',
+      fields: ['nombre', 'apellido', 'email'],
+    },
+
+    eliminar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'DELETE',
+      path: '/erp/clientes/:id',
+      fields: [],
+    },
+  },
+
+  compras: {
+    listar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'GET',
+      path: '/erp/compras',
+      fields: [],
+    },
+
+    crear: {
+      baseUrl: ERP_BASE_URL,
+      method: 'POST',
+      path: '/erp/compras',
+      fields: [
+        'inventario_id',
+        'cantidad',
+        'costo_unitario',
+      ],
+    },
+  },
+
+  ventas: {
+    listar: {
+      baseUrl: ERP_BASE_URL,
+      method: 'GET',
+      path: '/erp/ventas',
+      fields: [],
+    },
+
+    crear: {
+      baseUrl: ERP_BASE_URL,
+      method: 'POST',
+      path: '/erp/ventas',
+      fields: [
+        'inventario_id',
+        'cliente_id',
+        'cantidad',
+      ],
+    },
   },
 };
 
-export function cleanAndParseJson(text: string) {
-  let cleaned = String(text).trim();
-
-  cleaned = cleaned
-    .replace(/```json/g, '')
+/**
+ * Elimina bloques Markdown y extrae el objeto JSON
+ * producido por el modelo.
+ */
+export function cleanAndParseJson(text: string): unknown {
+  let cleaned = String(text)
+    .replace(/```json/gi, '')
     .replace(/```/g, '')
     .trim();
 
@@ -32,63 +129,46 @@ export function cleanAndParseJson(text: string) {
   const lastBrace = cleaned.lastIndexOf('}');
 
   if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error('No se encontró JSON válido en la respuesta del modelo');
+    throw new Error(
+      'No se encontró un objeto JSON en la respuesta del modelo',
+    );
   }
 
-  cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  cleaned = cleaned.substring(
+    firstBrace,
+    lastBrace + 1,
+  );
 
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error(
+      'El modelo no devolvió un JSON correctamente formado',
+    );
+  }
 }
 
-export function validateApiServicesJson(json: any) {
-  if (json?.type !== 'api_services') {
-    throw new Error('Respuesta inválida: type debe ser api_services');
-  }
+function isObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
 
-  if (!Array.isArray(json.actions)) {
-    throw new Error('Respuesta inválida: actions debe ser array');
-  }
-
-  for (const action of json.actions) {
-    const moduleData = validActions[action.module];
-
-    if (!moduleData) {
-      throw new Error(`Módulo inválido: ${action.module}`);
-    }
-
-    const operationData = moduleData[action.operation];
-
-    if (!operationData) {
-      throw new Error(`Operación inválida: ${action.module}.${action.operation}`);
-    }
-
-    if (action.method !== operationData.method) {
-      throw new Error(`Método inválido en ${action.module}.${action.operation}`);
-    }
-
-    if (operationData.path.includes(':id')) {
-      if (!action.params?.id) {
-        throw new Error(`Falta params.id en ${action.module}.${action.operation}`);
-      }
-
-      const expectedPath = operationData.path.replace(':id', String(action.params.id));
-
-      if (action.path !== expectedPath) {
-        throw new Error(`Path inválido. Esperado: ${expectedPath}`);
-      }
-    } else {
-      if (action.path !== operationData.path) {
-        throw new Error(`Path inválido. Esperado: ${operationData.path}`);
-      }
-    }
-
-    const body = action.body ?? {};
-
-    for (const key of Object.keys(body)) {
-      if (!operationData.fields.includes(key)) {
-        throw new Error(`Campo no permitido: ${key}`);
-      }
-    }
+/**
+ * Validación mínima:
+ * solamente confirma que el resultado sea un objeto.
+ */
+export function validateApiServicesJson(
+  json: unknown,
+): Record<string, unknown> {
+  if (!isObject(json)) {
+    throw new Error(
+      'La respuesta de la IA debe ser un objeto JSON',
+    );
   }
 
   return json;

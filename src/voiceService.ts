@@ -6,7 +6,16 @@ import AudioRecord from 'react-native-audio-record';
 export const WHISPER_MODEL_PATH =
   `${RNFS.ExternalDirectoryPath}/models/ggml-tiny.bin`;
 
-const AUDIO_PATH = `${RNFS.DocumentDirectoryPath}/recording.wav`;
+const WHISPER_PROMPT = `
+Comandos para un sistema ERP:
+crear cliente, listar clientes, editar cliente, eliminar cliente,
+crear compra, listar compras,
+crear venta, listar ventas,
+crear producto, listar inventario, ajustar stock,
+inventario ID, cliente ID, cantidad, costo unitario y precio de venta.
+`;
+
+//const AUDIO_PATH = `${RNFS.DocumentDirectoryPath}/recording.wav`;
 // Cambia AUDIO_PATH temporalmente a almacenamiento externo
 //const AUDIO_PATH = `${RNFS.ExternalDirectoryPath}/recording.wav`;
 
@@ -95,14 +104,16 @@ export async function stopVoiceRecording(): Promise<string> {
     throw new Error('Ya está transcribiendo, espera...');
   }
 
-  await AudioRecord.stop();
+  //await AudioRecord.stop();
+  const audioPath2 = await AudioRecord.stop();
   isRecording = false;
 
   // Esperar que el archivo se cierre correctamente
   await new Promise<void>(resolve => setTimeout(resolve, 500));
 
   // Verificar que el archivo existe
-  const exists = await RNFS.exists(AUDIO_PATH);
+  //const exists = await RNFS.exists(AUDIO_PATH);
+  const exists = await RNFS.exists(audioPath2);
   console.log('Archivo WAV existe:', exists);
   
   if (!exists) {
@@ -110,15 +121,18 @@ export async function stopVoiceRecording(): Promise<string> {
     return '';
   }
 
-  const stat = await RNFS.stat(AUDIO_PATH);
-  console.log('Tamaño del archivo:', stat.size, 'bytes');
+  //const stat = await RNFS.stat(AUDIO_PATH);
+  //console.log('Tamaño del archivo:', stat.size, 'bytes');
 
   const context = await loadWhisperModel();
   isTranscribing = true;//isTranscribing
   try {
-    const { promise } = context.transcribe(AUDIO_PATH, {
+    const { promise } = context.transcribe(audioPath2, {
       language: 'es',
-      maxLen: 1,
+      //maxLen: 1,
+      prompt: WHISPER_PROMPT,
+      maxThreads: 4,
+      temperature: 0.1,
       tokenTimestamps: false,
     });
     const result = await promise;

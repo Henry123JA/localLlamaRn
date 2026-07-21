@@ -14,32 +14,27 @@ export const MODEL_DIR = `${RNFS.ExternalDirectoryPath}/models`;
 
 // Cambia el nombre si tu modelo tiene otro nombre.
 export const DEFAULT_MODEL_PATH = `${MODEL_DIR}/qwen15.gguf`;
-
 const STOP_WORDS = [
   '</s>',
   '<|end|>',
   '<|eot_id|>',
   '<|end_of_text|>',
   '<|im_end|>',
-  '<|EOT|>',
-  '<|END_OF_TURN_TOKEN|>',
-  '<|end_of_turn|>',
   '<|endoftext|>',
 ];
 
-const LLAMA_PARAMS = {
-  n_gpu_layers: 0,
-  n_ctx: 1024,
-  n_threads: 4,
-  n_batch: 64,
-  use_mlock: false,
-};
-
 const DEFAULT_GENERATION_PARAMS = {
   n_predict: 256,
-  temperature: 0.2,
-  top_p: 0.9,
+  temperature: 0.3,
+  top_p: 1,
   stop: STOP_WORDS,
+};
+const LLAMA_PARAMS = {
+  n_gpu_layers: 0,
+  n_ctx: 1024,//antes 1024
+  n_threads: 4,
+  n_batch: 128,//antes 64
+  use_mlock: false,
 };
 
 function toFileUri(path: string) {
