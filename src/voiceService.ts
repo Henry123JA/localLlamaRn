@@ -15,9 +15,6 @@ crear producto, listar inventario, ajustar stock,
 inventario ID, cliente ID, cantidad, costo unitario y precio de venta.
 `;
 
-//const AUDIO_PATH = `${RNFS.DocumentDirectoryPath}/recording.wav`;
-// Cambia AUDIO_PATH temporalmente a almacenamiento externo
-//const AUDIO_PATH = `${RNFS.ExternalDirectoryPath}/recording.wav`;
 
 let whisperContext: WhisperContext | null = null;
 let whisperLoadingPromise: Promise<WhisperContext> | null = null;
